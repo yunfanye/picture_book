@@ -30,11 +30,11 @@ This is a Python-based picture book generator that creates complete children's p
 
 ### Picture Styles
 
-- **`minimalist`**: Simple lines, limited color palettes (2-4 colors), clean uncluttered compositions with emphasis on negative space
-- **`watercolor`**: Hand-drawn style with soft flowing effects, natural bleeding, gentle brush strokes, whimsical dreamy atmosphere
-- **`digital`**: Modern vibrant illustrations with saturated colors, smooth gradients, contemporary children's book aesthetic (default)
-- **`collage`**: Mixed media style combining textures, papers, materials with layered compositions and handcrafted appearance
-- **`comic`**: Bold graphic novel style with confident line work, dynamic compositions, punchy colors, expressive character poses
+- **`minimalist`**: Jon Klassen-inspired style with clean thin lines, 2-4 color palettes, emphasis on negative space, simplified character features, uncluttered compositions focusing on core story elements
+- **`watercolor`**: Traditional hand-drawn effects with soft color bleeding, organic brush strokes, whimsical dreamy atmosphere, warm earthy palettes, nostalgic feel that resonates with children and parents
+- **`digital`**: Modern 3D illustrations with vibrant saturated colors, dynamic lighting, cartoon-like character features, immersive visual experience, contemporary aesthetic (default)
+- **`collage`**: Mixed media combining paper, fabric, textures, layered compositions with handcrafted tactile appearance, encouraging creativity through diverse materials
+- **`comic`**: Bold graphic novel style with confident black outlines, vibrant contrasting colors, dynamic action compositions, expressive poses, modern twist appealing to comic-familiar children
 
 ## Common Commands
 

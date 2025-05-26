@@ -106,39 +106,56 @@ class ImageGenerator:
         """Get style-specific requirements based on the selected picture style"""
         style_requirements = {
             "minimalist": [
-                "- Minimalist illustration style with simple, clean lines",
-                "- Limited color palette with 2-4 main colors",
-                "- Clear, uncluttered composition focusing on essential elements",
-                "- Emphasis on negative space and simplicity",
-                "- Flat design elements without excessive detail"
+                "- MINIMALIST ILLUSTRATION style inspired by Jon Klassen (I Want My Hat Back)",
+                "- Clean, thin lines with simple geometric shapes and forms",
+                "- Limited color palette using only 2-4 main colors (soft pastels preferred)",
+                "- Emphasis on negative space with mostly white or single muted color backgrounds",
+                "- Uncluttered composition focusing on core story elements without overwhelming visuals",
+                "- Simplified character features with minimal facial details",
+                "- Flat design elements without excessive detail or texture",
+                "- Clear, focused storytelling that allows children to concentrate on essential narrative elements",
+                "- Subtle emotional expression conveyed through posture and basic shapes rather than complex facial features"
             ],
             "watercolor": [
-                "- Hand-drawn watercolor illustration style",
-                "- Soft, flowing watercolor effects with natural bleeding",
-                "- Gentle, organic brush strokes and textures",
-                "- Whimsical and dreamy atmosphere",
-                "- Traditional artistic feel with painterly qualities"
+                "- HAND-DRAWN WATERCOLOR EFFECTS with traditional artistic feel",
+                "- Soft, flowing watercolor textures with natural color bleeding and gradients",
+                "- Hand-drawn outlines with gentle, organic brush strokes",
+                "- Whimsical and dreamy atmosphere that resonates with both children and parents",
+                "- Warm, earthy color palette with soft blended transitions",
+                "- Delicate brush stroke textures giving depth and painterly warmth",
+                "- Nostalgic touch to modern storytelling with traditional art techniques",
+                "- Cozy, inviting scenes with watercolor's characteristic soft edges",
+                "- Natural imperfections and organic flow typical of watercolor medium"
             ],
             "digital": [
-                "- Modern digital illustration style",
-                "- Vibrant, saturated colors with smooth gradients",
-                "- Clean vector-style artwork or polished digital painting",
-                "- Contemporary children's book aesthetic",
-                "- Crisp details and professional finish"
+                "- MODERN DIGITAL AND 3D ILLUSTRATION style with technological advancement",
+                "- Vibrant, saturated colors with dynamic visuals and smooth gradients",
+                "- 3D digital rendering or polished vector-style artwork",
+                "- Bright, immersive visual experience with dynamic lighting and shadows",
+                "- Contemporary children's book aesthetic with crisp, professional finish",
+                "- Exaggerated, cartoon-like character features with expressive faces",
+                "- High contrast lighting creating depth and visual interest",
+                "- Clean, modern composition that makes stories more engaging through technology"
             ],
             "collage": [
-                "- Mixed media collage illustration style",
-                "- Combination of different textures, papers, and materials",
-                "- Layered composition with varied surface textures",
-                "- Creative use of patterns, fabrics, and cut-paper elements",
-                "- Handcrafted, tactile appearance"
+                "- COLLAGE AND MIXED MEDIA illustration combining various materials",
+                "- Layered composition using different textures: paper, fabric, patterned materials",
+                "- Rich, diverse color palette with varied surface textures and patterns",
+                "- Handcrafted, tactile appearance that adds depth and visual interest",
+                "- Creative use of cut-paper elements, magazine cutouts, and fabric pieces",
+                "- Detailed, engaging composition that encourages creativity and exploration",
+                "- Mixed material textures creating a three-dimensional, touchable quality",
+                "- Inspiring children to explore art through diverse media and materials"
             ],
             "comic": [
-                "- Comic book/graphic novel illustration style",
-                "- Bold, confident line work with clear outlines",
-                "- Dynamic composition with comic-style energy",
-                "- Bright, punchy colors typical of comics",
-                "- Expressive character poses and emotions"
+                "- COMIC BOOK AND GRAPHIC NOVEL STYLE with modern storytelling twist",
+                "- Bold, black outlines with confident line work and clear definition",
+                "- Vibrant, contrasting colors typical of comic book aesthetics",
+                "- Dynamic action compositions with comic-style energy and movement",
+                "- Stylized, graphic backgrounds with high contrast between shadows and highlights",
+                "- Expressive character poses showing excitement and emotion",
+                "- Modern twist appealing to children familiar with comics and graphic novels",
+                "- Dynamic visual storytelling with bold graphic elements"
             ]
         }
         
@@ -176,6 +193,7 @@ class ImageGenerator:
         - Avoid any malformed text, garbled words, or illegible text elements in the image
         - Aspect ratio: 4:3
         """
+        print(enhanced_prompt)
         
         return enhanced_prompt
     
