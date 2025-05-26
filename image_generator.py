@@ -17,22 +17,27 @@ from io import BytesIO
 
 
 class ImageGenerator:
-    def __init__(self, backend: str = "imagen", api_key: str = None):
+    def __init__(self, backend: str = "imagen", api_key: str = None, picture_style: str = "digital"):
         """
-        Initialize image generator with specified backend
+        Initialize image generator with specified backend and style
         
         Args:
             backend: "imagen" or "gemini" for image generation backend
             api_key: Google GenAI API key
+            picture_style: "minimalist", "watercolor", "digital", "collage", or "comic"
         """
         self.backend = backend.lower()
         if self.backend not in ["imagen", "gemini"]:
             raise ValueError("Backend must be 'imagen' or 'gemini'")
         
+        self.picture_style = picture_style.lower()
+        if self.picture_style not in ["minimalist", "watercolor", "digital", "collage", "comic"]:
+            raise ValueError("Picture style must be 'minimalist', 'watercolor', 'digital', 'collage', or 'comic'")
+        
         # Initialize Google GenAI client
         self.genai_client = genai.Client(api_key=api_key or os.getenv('GEMINI_API_KEY'))
         
-        print(f"🎨 Initialized image generator with {self.backend.upper()} backend")
+        print(f"🎨 Initialized image generator with {self.backend.upper()} backend and {self.picture_style} style")
     
     def generate_image(self, description: str, page_number: int, characters_on_page: List[str] = None, 
                       character_descriptions: Dict[str, Dict] = None, max_retries: int = 3, 
@@ -97,6 +102,48 @@ class ImageGenerator:
         # Create placeholder image if all attempts failed
         return self._create_placeholder_image(description, page_number, characters_on_page, character_descriptions, images_dir)
     
+    def _get_style_requirements(self) -> str:
+        """Get style-specific requirements based on the selected picture style"""
+        style_requirements = {
+            "minimalist": [
+                "- Minimalist illustration style with simple, clean lines",
+                "- Limited color palette with 2-4 main colors",
+                "- Clear, uncluttered composition focusing on essential elements",
+                "- Emphasis on negative space and simplicity",
+                "- Flat design elements without excessive detail"
+            ],
+            "watercolor": [
+                "- Hand-drawn watercolor illustration style",
+                "- Soft, flowing watercolor effects with natural bleeding",
+                "- Gentle, organic brush strokes and textures",
+                "- Whimsical and dreamy atmosphere",
+                "- Traditional artistic feel with painterly qualities"
+            ],
+            "digital": [
+                "- Modern digital illustration style",
+                "- Vibrant, saturated colors with smooth gradients",
+                "- Clean vector-style artwork or polished digital painting",
+                "- Contemporary children's book aesthetic",
+                "- Crisp details and professional finish"
+            ],
+            "collage": [
+                "- Mixed media collage illustration style",
+                "- Combination of different textures, papers, and materials",
+                "- Layered composition with varied surface textures",
+                "- Creative use of patterns, fabrics, and cut-paper elements",
+                "- Handcrafted, tactile appearance"
+            ],
+            "comic": [
+                "- Comic book/graphic novel illustration style",
+                "- Bold, confident line work with clear outlines",
+                "- Dynamic composition with comic-style energy",
+                "- Bright, punchy colors typical of comics",
+                "- Expressive character poses and emotions"
+            ]
+        }
+        
+        return "\n".join(style_requirements.get(self.picture_style, style_requirements["digital"]))
+    
     def _build_enhanced_prompt(self, description: str, characters_on_page: List[str] = None, 
                               character_descriptions: Dict[str, Dict] = None) -> str:
         """Build enhanced prompt for image generation"""
@@ -109,21 +156,20 @@ class ImageGenerator:
                     char_info = character_descriptions[char_name]
                     character_prompt += f"- {char_name}: {char_info['description']}\n"
         
+        # Get style-specific requirements
+        style_requirements = self._get_style_requirements()
+        
         # Enhanced prompt for better children's book illustrations
         enhanced_prompt = f"""
-        Create a beautiful, colorful children's book illustration in a warm, friendly art style.
-        The image should be suitable for a picture book with bright colors, clear details, and engaging characters.
+        Create a beautiful children's book illustration suitable for a picture book.
         
         Scene description: {description}
         {character_prompt}
         
         Style requirements:
-        - Bright, vibrant colors
-        - Child-friendly and non-scary
-        - Clear, simple composition
-        - Storybook illustration style
-        - High quality and detailed
-        - Cartoon or animated style
+        {style_requirements}
+        - Child-friendly and non-scary content
+        - High quality and engaging for children
         - Safe for children
         - MAINTAIN CHARACTER CONSISTENCY: If characters appear, they must match their established descriptions exactly
         - NO TEXT OVERLAYS: Create a clean image without any text, words, or letters burned into the illustration

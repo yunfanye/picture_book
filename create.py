@@ -35,16 +35,17 @@ from image_generator import ImageGenerator
 load_dotenv()
 
 class PictureBookGenerator:
-    def __init__(self, max_workers: int = 4, image_backend: str = "imagen"):
+    def __init__(self, max_workers: int = 4, image_backend: str = "imagen", picture_style: str = "digital"):
         # Initialize API clients
         self.claude_client = anthropic.Anthropic(
             api_key=os.getenv('ANTHROPIC_API_KEY')
         )
         
-        # Initialize image generator with specified backend
+        # Initialize image generator with specified backend and style
         self.image_generator = ImageGenerator(
             backend=image_backend,
-            api_key=os.getenv('GEMINI_API_KEY')
+            api_key=os.getenv('GEMINI_API_KEY'),
+            picture_style=picture_style
         )
         
         # Configure thread pool
@@ -876,6 +877,8 @@ def main():
     parser.add_argument('--generation-retries', '-g', type=int, default=3, help='Maximum retries for image generation failures (default: 3)')
     parser.add_argument('--validation-retries', '-v', type=int, default=2, help='Maximum retries for validation failures (default: 2)')
     parser.add_argument('--image-backend', '-i', type=str, choices=['imagen', 'gemini'], default='imagen', help='Image generation backend: "imagen" for Imagen 3 or "gemini" for Gemini Flash (default: imagen)')
+    parser.add_argument('--picture-style', '-p', type=str, choices=['minimalist', 'watercolor', 'digital', 'collage', 'comic'], default='digital', 
+                        help='Picture book illustration style: "minimalist" (simple lines, limited colors), "watercolor" (soft hand-drawn effects), "digital" (modern vibrant style), "collage" (mixed media textures), or "comic" (bold graphic novel style) (default: digital)')
     
     args = parser.parse_args()
     
@@ -936,8 +939,9 @@ def main():
         print(f"Using pre-generated story structure from: {args.story_structure}")
     
     # Create generator and run
-    generator = PictureBookGenerator(max_workers=args.max_workers, image_backend=args.image_backend)
+    generator = PictureBookGenerator(max_workers=args.max_workers, image_backend=args.image_backend, picture_style=args.picture_style)
     print(f"Using {args.max_workers} worker threads for image generation")
+    print(f"Picture style: {args.picture_style}")
     print(f"Image generation retries: {args.generation_retries}")
     print(f"Validation retries: {args.validation_retries}")
     

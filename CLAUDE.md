@@ -28,6 +28,14 @@ This is a Python-based picture book generator that creates complete children's p
 - **Imagen 3** (`imagen`): High-quality artistic illustrations, optimized for production books
 - **Gemini Flash** (`gemini`): Fast multimodal generation, good for testing and iteration
 
+### Picture Styles
+
+- **`minimalist`**: Simple lines, limited color palettes (2-4 colors), clean uncluttered compositions with emphasis on negative space
+- **`watercolor`**: Hand-drawn style with soft flowing effects, natural bleeding, gentle brush strokes, whimsical dreamy atmosphere
+- **`digital`**: Modern vibrant illustrations with saturated colors, smooth gradients, contemporary children's book aesthetic (default)
+- **`collage`**: Mixed media style combining textures, papers, materials with layered compositions and handcrafted appearance
+- **`comic`**: Bold graphic novel style with confident line work, dynamic compositions, punchy colors, expressive character poses
+
 ## Common Commands
 
 ### Basic Usage
@@ -40,6 +48,10 @@ python create.py 5 --image-backend gemini
 
 # Use reference story for adaptation
 python create.py 5 --reference-file "story.txt"
+
+# Use different picture styles
+python create.py 5 --picture-style watercolor
+python create.py 5 --picture-style minimalist
 ```
 
 ### Development Commands
@@ -55,6 +67,9 @@ python create.py 5 --story-structure output/story_structure_*.json
 
 # Adjust performance and reliability
 python create.py 5 --max-workers 2 --generation-retries 5 --validation-retries 3
+
+# Advanced combination example
+python create.py 5 --image-backend gemini --picture-style watercolor --max-workers 2
 ```
 
 ### Environment Setup
