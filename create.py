@@ -4,7 +4,7 @@ Picture Book Generator for Children
 
 This script generates a complete picture book with:
 1. Claude 4 for story generation and structured output
-2. Imagen 3 for image generation
+2. Imagen 3 or Gemini Flash for image generation
 3. OpenCV for adding text to images
 4. PDF compilation of the final book
 """
@@ -29,19 +29,23 @@ from google.genai import types
 from io import BytesIO
 from dotenv import load_dotenv
 import base64
+from image_generator import ImageGenerator
 
 # Load environment variables
 load_dotenv()
 
 class PictureBookGenerator:
-    def __init__(self, max_workers: int = 4):
+    def __init__(self, max_workers: int = 4, image_backend: str = "imagen"):
         # Initialize API clients
         self.claude_client = anthropic.Anthropic(
             api_key=os.getenv('ANTHROPIC_API_KEY')
         )
         
-        # Initialize Google GenAI client for Imagen
-        self.genai_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+        # Initialize image generator with specified backend
+        self.image_generator = ImageGenerator(
+            backend=image_backend,
+            api_key=os.getenv('GEMINI_API_KEY')
+        )
         
         # Configure thread pool
         self.max_workers = max_workers
@@ -184,138 +188,6 @@ class PictureBookGenerator:
             print(f"Error loading story structure: {e}")
             raise
     
-    def generate_image(self, description: str, page_number: int, characters_on_page: List[str] = None, character_descriptions: Dict[str, Dict] = None, max_retries: int = 3, custom_prompt: str = None) -> str:
-        """Generate image using Imagen 3 with character consistency and immediate retry on failure"""
-        
-        # Use custom prompt if provided, otherwise build enhanced prompt
-        if custom_prompt:
-            print(f"🎯 Using custom rewritten prompt for page {page_number}")
-            enhanced_prompt = custom_prompt
-        else:
-            # Build character consistency prompt
-            character_prompt = ""
-            if characters_on_page and character_descriptions:
-                character_prompt = "\n\nCHARACTER DESCRIPTIONS (maintain consistency):\n"
-                for char_name in characters_on_page:
-                    if char_name in character_descriptions:
-                        char_info = character_descriptions[char_name]
-                        character_prompt += f"- {char_name}: {char_info['description']}\n"
-            
-            # Enhanced prompt for better children's book illustrations
-            enhanced_prompt = f"""
-            Create a beautiful, colorful children's book illustration in a warm, friendly art style.
-            The image should be suitable for a picture book with bright colors, clear details, and engaging characters.
-            
-            Scene description: {description}
-            {character_prompt}
-            
-            Style requirements:
-            - Bright, vibrant colors
-            - Child-friendly and non-scary
-            - Clear, simple composition
-            - Storybook illustration style
-            - High quality and detailed
-            - Cartoon or animated style
-            - Safe for children
-            - MAINTAIN CHARACTER CONSISTENCY: If characters appear, they must match their established descriptions exactly
-            """
-        
-        # Retry logic for image generation
-        for attempt in range(max_retries):
-            try:
-                print(f"Generating image for page {page_number} (attempt {attempt + 1}/{max_retries})...")
-                
-                # Generate image using Imagen 3
-                response = self.genai_client.models.generate_images(
-                    model='imagen-3.0-generate-002',
-                    prompt=enhanced_prompt,
-                    config=types.GenerateImagesConfig(
-                        number_of_images=1,
-                        aspect_ratio="4:3",  # Good for picture books
-                        safety_filter_level="BLOCK_ONLY_HIGH",
-                        person_generation="ALLOW_ADULT"
-                    )
-                )
-                
-                # Check if images were generated
-                if response.generated_images and len(response.generated_images) > 0:
-                    # Save the generated image
-                    image_path = self.images_dir / f"page_{page_number:02d}.png"
-                    
-                    # Get the first (and only) generated image
-                    generated_image = response.generated_images[0]
-                    
-                    # Convert bytes to PIL Image and save
-                    image = Image.open(BytesIO(generated_image.image.image_bytes))
-                    image.save(image_path)
-                    
-                    print(f"✅ Successfully generated image for page {page_number}")
-                    return str(image_path)
-                else:
-                    print(f"❌ No images generated for page {page_number} on attempt {attempt + 1}")
-                    if attempt < max_retries - 1:
-                        print(f"🔄 Retrying immediately...")
-                        continue
-                    else:
-                        print(f"⚠️  Failed to generate image after {max_retries} attempts, creating placeholder")
-                        break
-                        
-            except Exception as e:
-                print(f"❌ Error generating image for page {page_number} on attempt {attempt + 1}: {e}")
-                if attempt < max_retries - 1:
-                    print(f"🔄 Retrying immediately...")
-                    continue
-                else:
-                    print(f"⚠️  Failed to generate image after {max_retries} attempts due to errors, creating placeholder")
-                    break
-        
-        # Create placeholder image if all attempts failed
-        print("Creating placeholder image...")
-        image_path = self.images_dir / f"page_{page_number:02d}.png"
-        img = Image.new('RGB', (1280, 896), color='lightblue')  # 4:3 aspect ratio
-        draw = ImageDraw.Draw(img)
-        
-        # Try to load a font, fallback to default if not available
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 24)
-        except:
-            font = ImageFont.load_default()
-        
-        # Add character info to placeholder if available
-        placeholder_text = f"PLACEHOLDER - Page {page_number}\n\n{description}"
-        if characters_on_page and character_descriptions:
-            placeholder_text += f"\n\nCharacters: {', '.join(characters_on_page)}"
-        
-        # Wrap text
-        words = placeholder_text.split()
-        lines = []
-        current_line = []
-        
-        for word in words:
-            current_line.append(word)
-            line_text = ' '.join(current_line)
-            bbox = draw.textbbox((0, 0), line_text, font=font)
-            if bbox[2] > 1200:  # If line is too wide
-                if len(current_line) > 1:
-                    current_line.pop()
-                    lines.append(' '.join(current_line))
-                    current_line = [word]
-                else:
-                    lines.append(word)
-                    current_line = []
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        # Draw text
-        y_offset = 50
-        for line in lines[:20]:  # Limit to 20 lines
-            draw.text((50, y_offset), line, fill='black', font=font)
-            y_offset += 35
-        
-        img.save(image_path)
-        return str(image_path)
-    
     def validate_image_and_get_dialog_placement(self, image_path: str, character_descriptions: Dict[str, Dict], 
                                                image_description: str, story_text: str, dialog: str, 
                                                characters_on_page: List[str]) -> Tuple[bool, Dict[str, Any]]:
@@ -415,12 +287,12 @@ class PictureBookGenerator:
                 "rewritten_prompt": "If not valid, provide a complete rewritten prompt for image generation that addresses the identified issues"
             }}
             
-            Image dimensions are approximately 1280x896 pixels (4:3 aspect ratio).
+            Image dimensions are approximately 1024x768 pixels (4:3 aspect ratio).
             Coordinate (0,0) is top-left corner.
             """
             
             # Call Gemini 2.5 Pro with the image
-            response = self.genai_client.models.generate_content(
+            response = self.image_generator.genai_client.models.generate_content(
                 model='gemini-2.5-pro-preview-05-06',
                 contents=[
                     types.Part.from_bytes(
@@ -565,13 +437,14 @@ class PictureBookGenerator:
             print(f"🎨 Generating and validating image for page {page_number} (validation attempt {attempt + 1}/{max_validation_retries + 1})")
             
             # Generate the image (with its own retry logic)
-            image_path = self.generate_image(
+            image_path = self.image_generator.generate_image(
                 image_description, 
                 page_number, 
                 characters_on_page, 
                 character_descriptions,
                 max_retries=max_generation_retries,
-                custom_prompt=custom_prompt_to_use
+                custom_prompt=custom_prompt_to_use,
+                images_dir=self.images_dir
             )
             
             # Validate the image and get placement info
@@ -982,6 +855,7 @@ def main():
     parser.add_argument('--max-workers', '-m', type=int, default=4, help='Maximum number of worker threads for image generation (default: 4)')
     parser.add_argument('--generation-retries', '-g', type=int, default=3, help='Maximum retries for image generation failures (default: 3)')
     parser.add_argument('--validation-retries', '-v', type=int, default=2, help='Maximum retries for validation failures (default: 2)')
+    parser.add_argument('--image-backend', '-i', type=str, choices=['imagen', 'gemini'], default='imagen', help='Image generation backend: "imagen" for Imagen 3 or "gemini" for Gemini Flash (default: imagen)')
     
     args = parser.parse_args()
     
@@ -1042,7 +916,7 @@ def main():
         print(f"Using pre-generated story structure from: {args.story_structure}")
     
     # Create generator and run
-    generator = PictureBookGenerator(max_workers=args.max_workers)
+    generator = PictureBookGenerator(max_workers=args.max_workers, image_backend=args.image_backend)
     print(f"Using {args.max_workers} worker threads for image generation")
     print(f"Image generation retries: {args.generation_retries}")
     print(f"Validation retries: {args.validation_retries}")

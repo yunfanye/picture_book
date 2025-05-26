@@ -1,269 +1,140 @@
-# Picture Book Generator for Children
+# Picture Book Generator
 
-This script generates complete picture books for children using AI. It combines Claude 4 for story generation, Imagen 3 for image creation, OpenCV for text overlay, and creates a final PDF book.
+A Python script that generates complete picture books for children using AI.
 
 ## Features
 
-1. **AI Story Generation**: Uses Claude 4 to create age-appropriate stories with structured output
-2. **Reference Story Adaptation**: Can adapt existing stories to be age-appropriate while maintaining core themes
-3. **Character Consistency**: Maintains consistent character appearances across all illustrations
-4. **Image Generation**: Uses Google's Imagen 3 to create beautiful illustrations
-5. **Direct Text Integration**: Adds story text and dialog directly onto images with professional styling
-6. **PDF Creation**: Compiles everything into a professional PDF book
-7. **Image Validation**: Uses Gemini 2.5 Pro to validate images and determine optimal text placement
-8. **Automatic Retry**: Intelligent retry logic for failed image generations
-9. **Story Structure Persistence**: Save and reuse story structures for testing
+- **Story Generation**: Uses Claude 4 for creating age-appropriate stories with consistent characters
+- **Image Generation**: Supports two backends:
+  - **Imagen 3**: Google's Imagen 3 model for high-quality illustrations
+  - **Gemini Flash**: Google's Gemini 2.0 Flash with image generation capabilities
+- **Image Validation**: Uses Gemini 2.5 Pro to validate generated images and determine optimal text placement
+- **Text Overlay**: Automatically adds story text and dialog to images with smart positioning
+- **PDF Generation**: Compiles everything into a professional picture book PDF
 
-## Setup
+## Installation
 
-### 1. Install Dependencies
-
+1. Install required dependencies:
 ```bash
-pip install -r requirements.txt
+pip install anthropic google-genai opencv-python pillow reportlab python-dotenv
 ```
 
-### 2. Configure API Keys
-
-Make sure your `.env` file contains the following API keys:
-
-```env
-ANTHROPIC_API_KEY=your_claude_api_key_here
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here  # Optional, for future features
+2. Set up environment variables in a `.env` file:
 ```
-
-**Note**: The Gemini API key is used for Imagen 3 image generation. You need to have access to the paid tier to use Imagen 3.
-
-### 3. Run the Script
-
-```bash
-# Generate an original story
-python create.py <age>
-
-# Generate a story based on a reference story
-python create.py <age> --reference "Your reference story text here"
-
-# Generate a story from a reference story file
-python create.py <age> --reference-file path/to/story.txt
+ANTHROPIC_API_KEY=your_claude_api_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
-
-Where `<age>` is the target age for the child (1-12 years old).
-
-## Usage Examples
-
-```bash
-# Generate a picture book for a 5-year-old
-python create.py 5
-
-# Generate a picture book for a 3-year-old based on a classic fairy tale
-python create.py 3 --reference "Once upon a time, there was a little girl named Goldilocks..."
-
-# Generate a picture book for an 8-year-old from a story file
-python create.py 8 --reference-file stories/adventure.txt
-
-# Generate using short reference flag
-python create.py 6 -r "A brave little mouse goes on an adventure"
-python create.py 4 -f fairy_tales/cinderella.txt
-```
-
-## Character Consistency
-
-The script now ensures character consistency across all illustrations by:
-
-1. **Character Definition**: Claude 4 creates detailed physical descriptions for each character
-2. **Consistent Descriptions**: Each character's appearance (hair color, eye color, clothing, build, etc.) is defined once and maintained throughout
-3. **Image Generation**: Imagen 3 receives character descriptions with each image prompt to ensure consistency
-4. **Character Tracking**: Each page specifies which characters appear, ensuring proper consistency prompts
-
-## Output
-
-The script will create:
-- `output/images/` - Individual page images
-- `output/<title>_picture_book.pdf` - Final PDF book
-
-## How It Works
-
-1. **Story Generation**: Claude 4 creates a complete story structure with 20-30 pages, including:
-   - Age-appropriate title and content
-   - Detailed character descriptions for consistency
-   - Story text for each page
-   - Character dialog
-   - Detailed image descriptions
-   - Character tracking per page
-
-2. **Image Creation**: For each page, the script generates images using Google's Imagen 3 model with:
-   - Scene descriptions
-   - Character consistency prompts
-   - Established character appearances
-
-3. **Text Integration**: OpenCV adds the story text and dialog directly onto each image with:
-   - Semi-transparent backgrounds for readability
-   - White text with black outlines for visibility
-   - Different styling for story text vs. dialog
-   - Automatic text wrapping and positioning
-   - Professional page numbering
-
-4. **PDF Compilation**: All pages are compiled into a professional PDF book
-
-## Reference Story Adaptation
-
-When using a reference story, the script will:
-- Adapt the story to be age-appropriate for the target age
-- Maintain core narrative structure and themes
-- Create consistent character descriptions
-- Generate new illustrations that match the adapted story
-- Ensure proper pacing and vocabulary for the target age
-
-## Customization
-
-You can modify the script to:
-- Change the number of pages (currently 20-30)
-- Adjust text formatting and positioning
-- Modify image generation prompts
-- Change PDF layout and styling
-- Adjust image aspect ratios and safety settings
-- Customize character description requirements
-
-## Text Integration
-
-The script now adds text directly onto the images for a more integrated look:
-
-1. **Semi-transparent Overlay**: Creates a dark, semi-transparent background for text areas
-2. **Outlined Text**: White text with black outlines ensures readability on any background
-3. **Smart Positioning**: Text is positioned at the bottom of images with proper margins
-4. **Dialog Styling**: Character dialog appears in a different color (light yellow) for distinction
-5. **Page Numbers**: Professional page numbering in the top-right corner with background
-6. **Automatic Sizing**: Text size and positioning adapt to image dimensions
-
-## Image Generation
-
-The script uses Google's Imagen 3 model for high-quality image generation. Features include:
-- 4:3 aspect ratio optimized for picture books
-- Child-friendly safety filters
-- Bright, vibrant colors suitable for children
-- Cartoon/animated style illustrations
-- Character consistency across all pages
-- Detailed character appearance prompts
-- Text integration designed for overlay compatibility
-
-If image generation fails (e.g., due to API limits or safety filters), the script automatically creates placeholder images with the story descriptions and character information.
-
-## Requirements
-
-- Python 3.8+
-- Valid Anthropic API key (for Claude)
-- Valid Google AI API key (for Imagen 3)
-- Access to Google AI's paid tier (required for Imagen 3)
-
-## Troubleshooting
-
-- **API Key Issues**: Make sure your `.env` file is properly configured
-- **Missing Dependencies**: Run `pip install -r requirements.txt`
-- **Age Range**: Use ages between 1-12 years old
-- **Output Directory**: The script automatically creates `output/` and `output/images/` directories
-- **Image Generation Errors**: If Imagen 3 fails, the script will create placeholder images and continue
-- **Paid Tier Required**: Imagen 3 requires access to Google AI's paid tier
-- **Reference Story Format**: Reference stories can be plain text, the script will adapt them appropriately
-- **Character Consistency**: If characters appear inconsistent, check that the character descriptions are detailed enough
-
-## Example Output Structure
-
-```
-output/
-├── images/
-│   ├── page_01.png
-│   ├── page_02.png
-│   ├── ...
-│   ├── final_page_01.png
-│   ├── final_page_02.png
-│   └── ...
-└── the_magical_garden_picture_book.pdf
-```
-
-## API Costs
-
-- **Claude API**: Approximately $0.01-0.05 per book (depending on length)
-- **Imagen 3**: Approximately $0.04 per image (20-30 images per book = $0.80-1.20)
-- **Total estimated cost**: $0.85-1.25 per picture book
-
-## Future Enhancements
-
-- Support for different art styles
-- Interactive elements
-- Audio narration
-- Custom character creation
-- Multi-language support
-- Batch generation for multiple ages
-- Custom story themes and topics
-- Character relationship mapping
-- Advanced character consistency validation
 
 ## Usage
 
 ### Basic Usage
+
+Generate a picture book for a 5-year-old:
 ```bash
-# Generate a new picture book for a 5-year-old
 python create.py 5
-
-# Generate with custom retry settings
-python create.py 5 --generation-retries 5 --validation-retries 3
 ```
 
-### Using Reference Stories
+### Image Generation Backends
+
+Choose between Imagen 3 (default) and Gemini Flash:
+
 ```bash
-# Use a reference story from text
-python create.py 7 --reference "Once upon a time..."
+# Use Imagen 3 (default)
+python create.py 5 --image-backend imagen
 
-# Use a reference story from file
-python create.py 7 --reference-file story.txt
-```
-
-### Story Structure Management
-```bash
-# List available saved story structures
-python create.py --list-stories
-
-# Use a pre-generated story structure (skips Claude generation)
-python create.py 5 --story-structure output/story_structure_adventure_20241201_143022.json
+# Use Gemini Flash
+python create.py 5 --image-backend gemini
 ```
 
 ### Advanced Options
+
 ```bash
-# Full control over generation
-python create.py 6 \
-  --reference-file my_story.txt \
+python create.py 5 \
+  --image-backend gemini \
   --max-workers 2 \
-  --generation-retries 4 \
-  --validation-retries 2
+  --generation-retries 5 \
+  --validation-retries 3 \
+  --reference-file "my_story.txt"
 ```
 
-## Command Line Arguments
+### Command Line Arguments
 
 - `age`: Target age for the child (1-12)
-- `--reference`, `-r`: Reference story text
-- `--reference-file`, `-f`: Path to reference story file
-- `--story-structure`, `-s`: Path to pre-generated story structure JSON
-- `--list-stories`, `-l`: List available story structure files
-- `--max-workers`, `-m`: Number of parallel image generation threads (default: 4)
-- `--generation-retries`, `-g`: Max retries for image generation failures (default: 3)
-- `--validation-retries`, `-v`: Max retries for validation failures (default: 2)
+- `--image-backend, -i`: Choose image generation backend (`imagen` or `gemini`)
+- `--reference, -r`: Reference story text for adaptation
+- `--reference-file, -f`: Path to file containing reference story
+- `--story-structure, -s`: Path to pre-generated story structure JSON
+- `--list-stories, -l`: List available story structure files
+- `--max-workers, -m`: Number of parallel image generation threads (default: 4)
+- `--generation-retries, -g`: Max retries for image generation (default: 3)
+- `--validation-retries, -v`: Max retries for validation failures (default: 2)
 
-## Story Structure Files
+### Working with Story Structures
 
-When generating a new story, the system automatically saves the Claude-generated story structure to a JSON file in the `output/` directory with the format:
+You can save and reuse story structures:
+
+1. Generate a story structure (automatically saved):
+```bash
+python create.py 5
 ```
-story_structure_{title}_{timestamp}.json
+
+2. List available story structures:
+```bash
+python create.py --list-stories
 ```
 
-These files can be reused to:
-- Skip the story generation step for faster testing
-- Regenerate images with different settings
-- Share story structures between runs
-- Debug image generation issues
+3. Use a pre-generated story structure:
+```bash
+python create.py 5 --story-structure output/story_structure_adventure_20241201_143022.json
+```
+
+## Architecture
+
+### Core Components
+
+1. **`create.py`**: Main script with `PictureBookGenerator` class
+2. **`image_generator.py`**: Modular image generation with `ImageGenerator` class
+
+### Image Generation Backends
+
+#### Imagen 3
+- High-quality, specialized image generation model
+- Optimized for artistic illustrations
+- 4:3 aspect ratio suitable for picture books
+- Safety filters for child-appropriate content
+
+#### Gemini Flash
+- Fast, multimodal model with image generation
+- Text and image generation in single API call
+- Good for rapid prototyping and testing
+- Newer model with evolving capabilities
+
+### Workflow
+
+1. **Story Generation**: Claude 4 creates structured story with character descriptions
+2. **Image Generation**: Selected backend generates illustrations with character consistency
+3. **Image Validation**: Gemini 2.5 Pro validates images and determines text placement
+4. **Text Overlay**: OpenCV adds story text and dialog with optimal positioning
+5. **PDF Compilation**: ReportLab creates final picture book PDF
 
 ## Output
 
-The system creates:
-- `output/images/`: Individual page images
-- `output/story_structure_*.json`: Saved story structures
-- `output/{title}_picture_book.pdf`: Final PDF book
+The script generates:
+- Individual page images in `output/images/`
+- Story structure JSON in `output/`
+- Final PDF picture book in `output/`
+
+## Error Handling
+
+- Automatic retry logic for failed image generation
+- Placeholder images for persistent failures
+- Graceful fallbacks for validation errors
+- Detailed logging throughout the process
+
+## Tips
+
+- **Imagen 3**: Better for final production-quality books
+- **Gemini Flash**: Faster for testing and iteration
+- Use `--max-workers 2` for better rate limit management
+- Save story structures to reuse with different image backends
+- Increase retry counts for better success rates with challenging prompts
