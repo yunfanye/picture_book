@@ -8,7 +8,7 @@ This script generates complete picture books for children using AI. It combines 
 2. **Reference Story Adaptation**: Can adapt existing stories to be age-appropriate while maintaining core themes
 3. **Character Consistency**: Maintains consistent character appearances across all illustrations
 4. **Image Generation**: Uses Google's Imagen 3 to create beautiful illustrations
-5. **Text Overlay**: Uses OpenCV to add story text and dialog to images
+5. **Direct Text Integration**: Adds story text and dialog directly onto images with professional styling
 6. **PDF Creation**: Compiles everything into a professional PDF book
 
 ## Setup
@@ -93,7 +93,12 @@ The script will create:
    - Character consistency prompts
    - Established character appearances
 
-3. **Text Overlay**: OpenCV adds the story text and dialog to each image with proper formatting
+3. **Text Integration**: OpenCV adds the story text and dialog directly onto each image with:
+   - Semi-transparent backgrounds for readability
+   - White text with black outlines for visibility
+   - Different styling for story text vs. dialog
+   - Automatic text wrapping and positioning
+   - Professional page numbering
 
 4. **PDF Compilation**: All pages are compiled into a professional PDF book
 
@@ -116,6 +121,17 @@ You can modify the script to:
 - Adjust image aspect ratios and safety settings
 - Customize character description requirements
 
+## Text Integration
+
+The script now adds text directly onto the images for a more integrated look:
+
+1. **Semi-transparent Overlay**: Creates a dark, semi-transparent background for text areas
+2. **Outlined Text**: White text with black outlines ensures readability on any background
+3. **Smart Positioning**: Text is positioned at the bottom of images with proper margins
+4. **Dialog Styling**: Character dialog appears in a different color (light yellow) for distinction
+5. **Page Numbers**: Professional page numbering in the top-right corner with background
+6. **Automatic Sizing**: Text size and positioning adapt to image dimensions
+
 ## Image Generation
 
 The script uses Google's Imagen 3 model for high-quality image generation. Features include:
@@ -125,6 +141,7 @@ The script uses Google's Imagen 3 model for high-quality image generation. Featu
 - Cartoon/animated style illustrations
 - Character consistency across all pages
 - Detailed character appearance prompts
+- Text integration designed for overlay compatibility
 
 If image generation fails (e.g., due to API limits or safety filters), the script automatically creates placeholder images with the story descriptions and character information.
 

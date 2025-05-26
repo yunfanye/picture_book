@@ -53,6 +53,8 @@ class PictureBookGenerator:
         """Generate story structure using Claude 4"""
         
         reference_prompt = ""
+        page_guidance = "The book should have 20-30 pages with engaging content appropriate for this age group."
+        
         if reference_story:
             reference_prompt = f"""
             
@@ -60,11 +62,19 @@ class PictureBookGenerator:
             {reference_story}
             
             Please adapt this reference story to be age-appropriate for a {age}-year-old while maintaining the core narrative structure and themes.
+            
+            IMPORTANT ADAPTATION GUIDELINES:
+            - Maintain the story's pacing and key plot points
+            - Each page should represent a meaningful story moment or scene
+            - Don't rush through the story - give each important event its own page(s)
+            - For repetitive elements (like the hen asking for help), create separate pages for each instance
+            - Include setup, character introduction, problem development, climax, and resolution
+            - Ensure smooth narrative flow across all pages
             """
         
         prompt = f"""
         Create a children's picture book story suitable for a {age}-year-old child. 
-        The book should have 20-30 pages with engaging content appropriate for this age group.
+        {page_guidance}
         {reference_prompt}
         
         IMPORTANT: First, define all the main characters in the story with detailed physical descriptions that will be used consistently throughout all illustrations.
@@ -73,7 +83,7 @@ class PictureBookGenerator:
         1. A compelling title
         2. A brief summary
         3. A "characters" section with detailed physical descriptions for each main character
-        4. For each page (20-30 pages), provide:
+        4. For each page, provide:
            - Page number
            - Story text (1-3 sentences appropriate for age {age})
            - Dialog (if any characters are speaking)
@@ -86,12 +96,21 @@ class PictureBookGenerator:
         - When characters appear in page descriptions, reference their established appearance
         - Maintain these descriptions consistently across all pages
         
+        PACING AND STRUCTURE REQUIREMENTS:
+        - Don't rush through the story - each important moment deserves its own page
+        - Include character introduction pages
+        - Show the problem/conflict developing gradually
+        - Include emotional moments and character reactions
+        - Build to a satisfying climax and resolution
+        - For repetitive story elements, create separate pages for each instance
+        
         Make sure the story has:
         - Age-appropriate vocabulary and concepts
         - Engaging characters with consistent appearances
         - A clear beginning, middle, and end
         - Positive messages and learning opportunities
         - Vivid, descriptive scenes for illustration
+        - Proper story pacing with adequate page count
         
         Format as valid JSON with this structure:
         {{
@@ -118,8 +137,8 @@ class PictureBookGenerator:
         
         try:
             response = self.claude_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=4000,
+                model="claude-sonnet-4-20250514",
+                max_tokens=16000,
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -253,7 +272,7 @@ class PictureBookGenerator:
             return str(image_path)
     
     def add_text_to_image(self, image_path: str, story_text: str, dialog: str, page_number: int) -> str:
-        """Add story text and dialog to image using OpenCV"""
+        """Add story text and dialog directly onto the image using OpenCV"""
         try:
             # Load image
             img = cv2.imread(image_path)
@@ -262,26 +281,28 @@ class PictureBookGenerator:
             
             height, width = img.shape[:2]
             
-            # Create text overlay area at the bottom
-            overlay_height = 150
-            overlay = np.zeros((overlay_height, width, 3), dtype=np.uint8)
-            overlay.fill(255)  # White background
-            
-            # Add semi-transparent overlay
-            cv2.rectangle(img, (0, height - overlay_height), (width, height), (255, 255, 255), -1)
-            
             # Configure text properties
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.7
-            color = (0, 0, 0)  # Black text
+            story_font_scale = 0.8
+            dialog_font_scale = 0.7
             thickness = 2
             
-            # Wrap and add story text
-            y_offset = height - overlay_height + 30
+            # Colors
+            text_color = (255, 255, 255)  # White text
+            outline_color = (0, 0, 0)     # Black outline
+            dialog_color = (255, 255, 200)  # Light yellow for dialog
             
-            if story_text:
-                # Wrap story text
-                words = story_text.split()
+            def draw_text_with_outline(img, text, position, font, font_scale, text_color, outline_color, thickness):
+                """Draw text with black outline for better readability"""
+                x, y = position
+                # Draw outline (thicker black text)
+                cv2.putText(img, text, (x, y), font, font_scale, outline_color, thickness + 2)
+                # Draw main text (white)
+                cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
+            
+            def wrap_text(text, max_width, font, font_scale, thickness):
+                """Wrap text to fit within specified width"""
+                words = text.split()
                 lines = []
                 current_line = []
                 
@@ -289,7 +310,7 @@ class PictureBookGenerator:
                     test_line = ' '.join(current_line + [word])
                     (text_width, text_height), _ = cv2.getTextSize(test_line, font, font_scale, thickness)
                     
-                    if text_width < width - 40:  # Leave margin
+                    if text_width < max_width:
                         current_line.append(word)
                     else:
                         if current_line:
@@ -300,46 +321,70 @@ class PictureBookGenerator:
                 
                 if current_line:
                     lines.append(' '.join(current_line))
+                
+                return lines
+            
+            # Calculate text area dimensions
+            text_margin = 40
+            max_text_width = width - (text_margin * 2)
+            
+            # Process story text
+            story_lines = []
+            if story_text:
+                story_lines = wrap_text(story_text, max_text_width, font, story_font_scale, thickness)
+            
+            # Process dialog text
+            dialog_lines = []
+            if dialog:
+                dialog_text = f'"{dialog}"'
+                dialog_lines = wrap_text(dialog_text, max_text_width, font, dialog_font_scale, thickness)
+            
+            # Calculate total text height needed
+            line_height = 35
+            total_lines = len(story_lines) + len(dialog_lines) + (1 if dialog_lines else 0)  # Extra space between story and dialog
+            total_text_height = total_lines * line_height + 40  # Extra padding
+            
+            # Create semi-transparent overlay for text area
+            if story_lines or dialog_lines:
+                # Position text area at bottom of image
+                overlay_y_start = height - total_text_height - 20
+                overlay_y_end = height - 10
+                
+                # Create overlay
+                overlay = img.copy()
+                cv2.rectangle(overlay, (10, overlay_y_start), (width - 10, overlay_y_end), (0, 0, 0), -1)
+                
+                # Blend overlay with original image (semi-transparent)
+                alpha = 0.7  # Transparency level
+                img = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
+                
+                # Add text to the overlay area
+                y_offset = overlay_y_start + 30
                 
                 # Draw story text
-                for line in lines:
-                    cv2.putText(img, line, (20, y_offset), font, font_scale, color, thickness)
-                    y_offset += 25
+                for line in story_lines:
+                    draw_text_with_outline(img, line, (text_margin, y_offset), font, story_font_scale, text_color, outline_color, thickness)
+                    y_offset += line_height
+                
+                # Add space between story and dialog
+                if dialog_lines:
+                    y_offset += 10
+                
+                # Draw dialog text
+                for line in dialog_lines:
+                    draw_text_with_outline(img, line, (text_margin, y_offset), font, dialog_font_scale, dialog_color, outline_color, thickness)
+                    y_offset += line_height
             
-            # Add dialog if present
-            if dialog:
-                y_offset += 10
-                dialog_text = f'"{dialog}"'
-                # Wrap dialog text
-                words = dialog_text.split()
-                lines = []
-                current_line = []
-                
-                for word in words:
-                    test_line = ' '.join(current_line + [word])
-                    (text_width, text_height), _ = cv2.getTextSize(test_line, font, font_scale, thickness)
-                    
-                    if text_width < width - 40:
-                        current_line.append(word)
-                    else:
-                        if current_line:
-                            lines.append(' '.join(current_line))
-                            current_line = [word]
-                        else:
-                            lines.append(word)
-                
-                if current_line:
-                    lines.append(' '.join(current_line))
-                
-                # Draw dialog text in italic style (using different color)
-                dialog_color = (50, 50, 150)  # Dark blue for dialog
-                for line in lines:
-                    cv2.putText(img, line, (20, y_offset), font, font_scale, dialog_color, thickness)
-                    y_offset += 25
-            
-            # Add page number
+            # Add page number in top-right corner
             page_text = f"Page {page_number}"
-            cv2.putText(img, page_text, (width - 100, height - 10), font, 0.5, (100, 100, 100), 1)
+            (page_text_width, page_text_height), _ = cv2.getTextSize(page_text, font, 0.6, 1)
+            page_x = width - page_text_width - 20
+            page_y = 30
+            
+            # Semi-transparent background for page number
+            cv2.rectangle(img, (page_x - 10, page_y - page_text_height - 5), (page_x + page_text_width + 10, page_y + 5), (0, 0, 0), -1)
+            cv2.rectangle(img, (page_x - 10, page_y - page_text_height - 5), (page_x + page_text_width + 10, page_y + 5), (255, 255, 255), 1)
+            cv2.putText(img, page_text, (page_x, page_y), font, 0.6, (255, 255, 255), 1)
             
             # Save the final image
             final_path = self.images_dir / f"final_page_{page_number:02d}.png"
