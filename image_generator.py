@@ -126,6 +126,8 @@ class ImageGenerator:
         - Cartoon or animated style
         - Safe for children
         - MAINTAIN CHARACTER CONSISTENCY: If characters appear, they must match their established descriptions exactly
+        - NO TEXT OVERLAYS: Create a clean image without any text, words, or letters burned into the illustration
+        - Avoid any malformed text, garbled words, or illegible text elements in the image
         - Aspect ratio: 4:3
         """
         

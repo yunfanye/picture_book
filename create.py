@@ -193,18 +193,20 @@ class PictureBookGenerator:
                                                characters_on_page: List[str]) -> Tuple[bool, Dict[str, Any]]:
         """
         Use Gemini 2.5 Pro to:
-        1. Validate if the generated image aligns with requirements
-        2. Determine optimal dialog placement coordinates and colors
-        3. Provide rewritten prompts for regeneration when image is invalid
+        1. Score the image based on alignment with requirements (0-100)
+        2. Validate if the generated image aligns with requirements
+        3. Determine optimal dialog placement coordinates and colors
+        4. Provide rewritten prompts for regeneration when score is low
         
         Returns:
             Tuple of (is_valid, placement_info)
             placement_info contains: {
+                'score': int (0-100),
                 'dialog_positions': [{'text': str, 'x': int, 'y': int, 'color': tuple}],
                 'story_text_position': {'x': int, 'y': int, 'color': tuple},
                 'validation_feedback': str,
                 'regeneration_suggestions': str,
-                'rewritten_prompt': str (when image is invalid)
+                'rewritten_prompt': str (when score is low)
             }
         """
         try:
@@ -225,20 +227,22 @@ class PictureBookGenerator:
             validation_prompt = f"""
             Please analyze this children's book illustration and provide feedback on three tasks:
 
-            TASK 1 - IMAGE VALIDATION:
-            Check if the generated image aligns with the requirements:
+            TASK 1 - IMAGE SCORING AND VALIDATION:
+            Score the image from 0-100 based on alignment with requirements:
             
             Expected scene: {image_description}
             {character_context}
             Story context: {story_text}
             
-            Evaluate:
-            - Do the characters match their described appearances?
-            - Does the scene match the description?
-            - Is it appropriate for children?
-            - Are the colors bright and engaging?
-            - Is the composition clear and not cluttered?
-            - Is there malformed text?
+            SCORING CRITERIA (primary factors):
+            - Character appearance accuracy (30 points): Do characters match their described appearances exactly?
+            - Scene description alignment (30 points): Does the scene match the description accurately?
+            - Malformed text penalty (-50 points): Are there any long malformed texts, garbled words, or illegible text overlays in the image?
+            - Child appropriateness (15 points): Is it appropriate and engaging for children?
+            - Visual quality (15 points): Are colors bright, composition clear, and not cluttered?
+            - Style consistency (10 points): Does it match children's book illustration style?
+            
+            CRITICAL: If there are any long malformed texts, garbled words, or illegible text overlays visible in the image, apply a -50 point penalty.
             
             TASK 2 - DIALOG PLACEMENT:
             Determine optimal text placement for the following content:
@@ -254,19 +258,21 @@ class PictureBookGenerator:
             - Provide RGB color values that contrast well with the background
             - Prefer white text for story text and black text for dialog
             
-            TASK 3 - PROMPT REWRITING (only if image is invalid):
-            If the image doesn't meet requirements, provide a rewritten prompt that addresses the specific issues found.
+            TASK 3 - PROMPT REWRITING (only if score is below 70):
+            If the score is below 70, provide a rewritten prompt that addresses the specific issues found.
             The rewritten prompt should:
             - Fix character appearance inconsistencies
             - Improve scene composition
             - Enhance visual elements that were missing or incorrect
+            - Explicitly mention "no text overlays" or "clean image without text" to avoid malformed text
             - Maintain the core scene description while adding specific improvements
             - Include all character consistency requirements from the original prompt
             
             Please respond in JSON format:
             {{
-                "is_valid": true/false,
-                "validation_feedback": "Detailed feedback on what matches/doesn't match requirements",
+                "score": score_number_0_to_100,
+                "is_valid": true_if_score_above_70_false_otherwise,
+                "validation_feedback": "Detailed feedback including score breakdown and what matches/doesn't match requirements",
                 "story_text_position": {{
                     "x": pixel_x_coordinate,
                     "y": pixel_y_coordinate,
@@ -284,8 +290,8 @@ class PictureBookGenerator:
                         "background_color": [r, g, b]
                     }}
                 ],
-                "regeneration_suggestions": "If not valid, specific suggestions for improvement",
-                "rewritten_prompt": "If not valid, provide a complete rewritten prompt for image generation that addresses the identified issues"
+                "regeneration_suggestions": "If score below 70, specific suggestions for improvement",
+                "rewritten_prompt": "If score below 70, provide a complete rewritten prompt for image generation that addresses the identified issues"
             }}
             
             Image dimensions are approximately 1024x768 pixels (4:3 aspect ratio).
@@ -318,7 +324,9 @@ class PictureBookGenerator:
             json_str = response_text[start_idx:end_idx]
             result = json.loads(json_str)
             
-            is_valid = result.get('is_valid', True)
+            # Extract score and validation status
+            score = result.get('score', 50)  # Default to 50 if no score provided
+            is_valid = result.get('is_valid', score >= 70)  # Valid if score >= 70
             
             # Ensure we have valid placement info with proper defaults
             story_text_pos = result.get('story_text_position', {})
@@ -360,6 +368,7 @@ class PictureBookGenerator:
                         dialog_info['background_color'] = [0, 0, 0]
             
             placement_info = {
+                'score': score,
                 'story_text_position': story_text_pos,
                 'dialog_positions': dialog_positions,
                 'validation_feedback': result.get('validation_feedback', ''),
@@ -367,7 +376,7 @@ class PictureBookGenerator:
                 'rewritten_prompt': result.get('rewritten_prompt', '')
             }
             
-            print(f"Image validation result: {'VALID' if is_valid else 'INVALID'}")
+            print(f"Image validation result: Score {score}/100 {'(VALID)' if is_valid else '(INVALID)'}")
             if not is_valid:
                 print(f"Validation feedback: {placement_info['validation_feedback']}")
                 print(f"Suggestions: {placement_info['regeneration_suggestions']}")
@@ -382,6 +391,7 @@ class PictureBookGenerator:
     def _get_default_placement_info(self, story_text: str, dialog: str) -> Dict[str, Any]:
         """Provide default text placement when Gemini validation fails"""
         placement_info = {
+            'score': 50,  # Default score when validation fails
             'story_text_position': {
                 'x': 40,
                 'y': 800,  # Near bottom
@@ -413,8 +423,8 @@ class PictureBookGenerator:
     def generate_validate_and_add_text_to_image(self, page_data: Dict[str, Any], character_descriptions: Dict[str, Dict], 
                                    max_validation_retries: int = 2, max_generation_retries: int = 3) -> str:
         """
-        Generate an image, validate it with Gemini 2.5 Pro, and add text overlay immediately after validation.
-        Regenerates if validation fails.
+        Generate an image, validate it with Gemini 2.5 Pro using scoring, and add text overlay.
+        Only replaces the image if the new score is higher than the previous score.
         
         Args:
             page_data: Page information including description, text, dialog, etc.
@@ -435,8 +445,13 @@ class PictureBookGenerator:
         original_description = image_description
         custom_prompt_to_use = None
         
+        # Track the best image and score
+        best_image_path = None
+        best_score = -1
+        best_placement_info = None
+        
         for attempt in range(max_validation_retries + 1):
-            print(f"🎨 Generating, validating, and adding text for page {page_number} (attempt {attempt + 1}/{max_validation_retries + 1})")
+            print(f"🎨 Generating, validating, and scoring for page {page_number} (attempt {attempt + 1}/{max_validation_retries + 1})")
             
             # Generate the image (with its own retry logic)
             image_path = self.image_generator.generate_image(
@@ -449,71 +464,65 @@ class PictureBookGenerator:
                 images_dir=self.images_dir
             )
             
-            # Validate the image and get placement info
+            # Validate the image and get placement info with score
             is_valid, placement_info = self.validate_image_and_get_dialog_placement(
                 image_path, character_descriptions, image_description, 
                 story_text, dialog, characters_on_page
             )
             
-            if is_valid:
-                print(f"✅ Image for page {page_number} validated successfully")
-                
-                # Add text overlay immediately after successful validation
-                print(f"📝 Adding text overlay to page {page_number}")
-                final_image_path = self.add_text_to_image(
-                    image_path,
-                    story_text,
-                    dialog,
-                    page_number,
-                    placement_info
-                )
-                
-                print(f"✅ Completed page {page_number} with text overlay")
-                return final_image_path
+            current_score = placement_info.get('score', 0)
+            
+            # Keep this image if it's the best so far
+            if current_score > best_score:
+                print(f"🎯 New best score for page {page_number}: {current_score}/100 (previous: {best_score}/100)")
+                best_score = current_score
+                best_image_path = image_path
+                best_placement_info = placement_info
             else:
-                print(f"❌ Image for page {page_number} failed validation")
-                if attempt < max_validation_retries:
-                    print(f"🔄 Regenerating image for page {page_number} with improvements...")
-                    
-                    # Use Gemini's rewritten prompt if available, otherwise enhance the original
-                    rewritten_prompt = placement_info.get('rewritten_prompt', '').strip()
-                    if rewritten_prompt:
-                        print(f"📝 Using Gemini's rewritten prompt for regeneration")
-                        custom_prompt_to_use = rewritten_prompt
-                        # Keep original description for validation context
-                        image_description = original_description
-                    elif placement_info.get('regeneration_suggestions'):
-                        print(f"📝 Enhancing original prompt with suggestions")
-                        enhanced_description = f"{original_description}\n\nIMPROVEMENT NEEDED: {placement_info['regeneration_suggestions']}"
-                        image_description = enhanced_description
-                        custom_prompt_to_use = None
-                    else:
-                        print(f"📝 No specific improvements provided, using original prompt")
-                        custom_prompt_to_use = None
+                print(f"📊 Score for page {page_number}: {current_score}/100 (keeping previous best: {best_score}/100)")
+            
+            # If we have a valid image (score >= 70), we can stop trying
+            if is_valid and current_score >= 70:
+                print(f"✅ Image for page {page_number} validated successfully with high score")
+                break
+            elif attempt < max_validation_retries:
+                print(f"🔄 Attempting to improve score for page {page_number}...")
+                
+                # Use Gemini's rewritten prompt if available, otherwise enhance the original
+                rewritten_prompt = placement_info.get('rewritten_prompt', '').strip()
+                if rewritten_prompt:
+                    print(f"📝 Using Gemini's rewritten prompt for regeneration")
+                    custom_prompt_to_use = rewritten_prompt
+                    # Keep original description for validation context
+                    image_description = original_description
+                elif placement_info.get('regeneration_suggestions'):
+                    print(f"📝 Enhancing original prompt with suggestions")
+                    enhanced_description = f"{original_description}\n\nIMPROVEMENT NEEDED: {placement_info['regeneration_suggestions']}"
+                    image_description = enhanced_description
+                    custom_prompt_to_use = None
                 else:
-                    print(f"⚠️  Using image for page {page_number} despite validation failure after {max_validation_retries} retries")
-                    
-                    # Add text overlay even if validation failed
-                    print(f"📝 Adding text overlay to page {page_number} (validation failed)")
-                    final_image_path = self.add_text_to_image(
-                        image_path,
-                        story_text,
-                        dialog,
-                        page_number,
-                        placement_info
-                    )
-                    
-                    return final_image_path
+                    print(f"📝 No specific improvements provided, using original prompt")
+                    custom_prompt_to_use = None
+            else:
+                print(f"⚠️  Using best image for page {page_number} with score {best_score}/100 after {max_validation_retries + 1} attempts")
         
-        # This should never be reached, but just in case
-        # Add text overlay as fallback
+        # Use the best image we found
+        if best_image_path is None:
+            print(f"❌ No valid image generated for page {page_number}, using last attempt")
+            best_image_path = image_path
+            best_placement_info = placement_info
+        
+        # Add text overlay using the best image
+        print(f"📝 Adding text overlay to page {page_number} (final score: {best_score}/100)")
         final_image_path = self.add_text_to_image(
-            image_path,
+            best_image_path,
             story_text,
             dialog,
             page_number,
-            placement_info
+            best_placement_info
         )
+        
+        print(f"✅ Completed page {page_number} with text overlay (final score: {best_score}/100)")
         return final_image_path
     
     def add_text_to_image(self, image_path: str, story_text: str, dialog: str, page_number: int, 
