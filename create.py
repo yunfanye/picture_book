@@ -253,11 +253,13 @@ class PictureBookGenerator:
             For text placement, prioritize these guidelines:
             - PREFER BACKGROUND AREAS: Look for sky, grass, walls, or other relatively plain background areas
             - Avoid covering character faces, important objects, or detailed visual elements
+            - SEPARATE ROWS: Ensure story text and dialog text are placed on different rows/areas and do not overlap
             - Place dialog near speaking characters when possible, but in background areas
             - Use bottom area for story text if it has suitable background space
             - Text will use semi-transparent backgrounds, so focus on areas with consistent colors
-            - Provide RGB color values that contrast well with the background area
-            - Prefer white text for story text and appropriate contrasting colors for dialog
+            - USE BLACK OR WHITE TEXT: Whenever possible, use black [0,0,0] or white [255,255,255] text colors for maximum readability
+            - Choose white text for dark background areas and black text for light background areas
+            - Only use other colors if black/white would not provide sufficient contrast
             
             TASK 3 - PROMPT REWRITING (only if score is below 70):
             If the score is below 70, provide a rewritten prompt that addresses the specific issues found.
@@ -413,8 +415,8 @@ class PictureBookGenerator:
                 placement_info['dialog_positions'].append({
                     'text': chunk,
                     'x': 40,
-                    'y': 750 - (i * 30),  # Stack dialog above story text
-                    'color': [255, 255, 200],  # Light yellow
+                    'y': 720 - (i * 30),  # Place dialog well above story text with clear separation
+                    'color': [255, 255, 255],  # White text for better readability
                     'background_needed': True,
                     'background_color': [0, 0, 0]
                 })
@@ -561,7 +563,7 @@ class PictureBookGenerator:
                             bg_color, -1)
                 
                 # Blend overlay with original image (semi-transparent)
-                alpha = 0.5  # 50% opacity for background
+                alpha = 0.2  # 20% opacity for background
                 cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
                 
                 # Draw text
@@ -722,15 +724,17 @@ class PictureBookGenerator:
                 # Use individual semi-transparent backgrounds for each text line
                 if story_lines or dialog_lines:
                     y_offset = height - total_text_height
+                    story_end_y = y_offset
                     
                     # Draw story text with individual semi-transparent backgrounds
                     for line in story_lines:
                         draw_text_with_background(img, line, (text_margin, y_offset), font, story_font_scale, text_color, bg_color, thickness, True)
                         y_offset += line_height
+                        story_end_y = y_offset
                     
-                    # Add space between story and dialog
-                    if dialog_lines:
-                        y_offset += 10
+                    # Only add extra spacing if there are both story and dialog lines (they would overlap in sequential layout)
+                    if dialog_lines and story_lines:
+                        y_offset += 20  # Add spacing since we're placing them sequentially
                     
                     # Draw dialog text with individual semi-transparent backgrounds
                     for line in dialog_lines:
@@ -748,7 +752,7 @@ class PictureBookGenerator:
             overlay = img.copy()
             cv2.rectangle(overlay, (page_x - padding, page_y - page_text_height - padding), 
                          (page_x + page_text_width + padding, page_y + padding), (0, 0, 0), -1)
-            alpha = 0.5
+            alpha = 0.2
             cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
             cv2.putText(img, page_text, (page_x, page_y), font, 0.6, (255, 255, 255), 1)
             
