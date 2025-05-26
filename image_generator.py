@@ -140,7 +140,7 @@ class ImageGenerator:
                 config=types.GenerateImagesConfig(
                     number_of_images=1,
                     aspect_ratio="4:3",  # Good for picture books
-                    safety_filter_level="BLOCK_ONLY_HIGH",
+                    safety_filter_level="BLOCK_LOW_AND_ABOVE",
                     person_generation="ALLOW_ADULT"
                 )
             )
@@ -169,7 +169,7 @@ class ImageGenerator:
         """Generate image using Gemini Flash"""
         try:
             response = self.genai_client.models.generate_content(
-                model="gemini-2.5-flash-preview-image-generation",
+                model="gemini-2.0-flash-preview-image-generation",
                 contents=[prompt],
                 config=types.GenerateContentConfig(
                     response_modalities=['TEXT', 'IMAGE']
@@ -201,7 +201,7 @@ class ImageGenerator:
         """Create placeholder image when generation fails"""
         print("Creating placeholder image...")
         image_path = images_dir / f"page_{page_number:02d}.png"
-        img = Image.new('RGB', (1280, 896), color='lightblue')  # 4:3 aspect ratio
+        img = Image.new('RGB', (1024, 768), color='lightblue')  # 4:3 aspect ratio
         draw = ImageDraw.Draw(img)
         
         # Try to load a font, fallback to default if not available
@@ -224,7 +224,7 @@ class ImageGenerator:
             current_line.append(word)
             line_text = ' '.join(current_line)
             bbox = draw.textbbox((0, 0), line_text, font=font)
-            if bbox[2] > 1200:  # If line is too wide
+            if bbox[2] > 1000:  # If line is too wide (adjusted for 1024 width)
                 if len(current_line) > 1:
                     current_line.pop()
                     lines.append(' '.join(current_line))

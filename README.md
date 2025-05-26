@@ -112,10 +112,11 @@ python create.py 5 --story-structure output/story_structure_adventure_20241201_1
 ### Workflow
 
 1. **Story Generation**: Claude 4 creates structured story with character descriptions
-2. **Image Generation**: Selected backend generates illustrations with character consistency
-3. **Image Validation**: Gemini 2.5 Pro validates images and determines text placement
-4. **Text Overlay**: OpenCV adds story text and dialog with optimal positioning
-5. **PDF Compilation**: ReportLab creates final picture book PDF
+2. **Image Generation & Processing**: For each page:
+   - Selected backend generates illustrations with character consistency
+   - Gemini 2.5 Pro validates images and determines text placement
+   - Text overlay is added immediately after successful validation
+3. **PDF Compilation**: ReportLab creates final picture book PDF
 
 ## Output
 

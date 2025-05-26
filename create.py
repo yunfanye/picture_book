@@ -117,7 +117,7 @@ class PictureBookGenerator:
                     "story_text": "Story text for this page",
                     "dialog": "Character dialog if any",
                     "characters_on_page": ["character1", "character2"],
-                    "image_description": "Detailed description for AI image generation that references character descriptions when characters appear"
+                    "image_description": "Detailed description for AI image generation that references character descriptions when characters appear. Make sure to include the character's position in the image."
                 }}
             ]
         }}
@@ -238,6 +238,7 @@ class PictureBookGenerator:
             - Is it appropriate for children?
             - Are the colors bright and engaging?
             - Is the composition clear and not cluttered?
+            - Is there malformed text?
             
             TASK 2 - DIALOG PLACEMENT:
             Determine optimal text placement for the following content:
@@ -409,10 +410,11 @@ class PictureBookGenerator:
         
         return placement_info
     
-    def generate_and_validate_image(self, page_data: Dict[str, Any], character_descriptions: Dict[str, Dict], 
-                                   max_validation_retries: int = 2, max_generation_retries: int = 3) -> Tuple[str, Dict[str, Any]]:
+    def generate_validate_and_add_text_to_image(self, page_data: Dict[str, Any], character_descriptions: Dict[str, Dict], 
+                                   max_validation_retries: int = 2, max_generation_retries: int = 3) -> str:
         """
-        Generate an image and validate it with Gemini 2.5 Pro, regenerating if necessary.
+        Generate an image, validate it with Gemini 2.5 Pro, and add text overlay immediately after validation.
+        Regenerates if validation fails.
         
         Args:
             page_data: Page information including description, text, dialog, etc.
@@ -421,7 +423,7 @@ class PictureBookGenerator:
             max_generation_retries: Maximum retries for image generation failures (default: 3)
         
         Returns:
-            Tuple of (image_path, placement_info)
+            Path to final image with text overlay
         """
         page_number = page_data['page_number']
         image_description = page_data['image_description']
@@ -434,7 +436,7 @@ class PictureBookGenerator:
         custom_prompt_to_use = None
         
         for attempt in range(max_validation_retries + 1):
-            print(f"🎨 Generating and validating image for page {page_number} (validation attempt {attempt + 1}/{max_validation_retries + 1})")
+            print(f"🎨 Generating, validating, and adding text for page {page_number} (attempt {attempt + 1}/{max_validation_retries + 1})")
             
             # Generate the image (with its own retry logic)
             image_path = self.image_generator.generate_image(
@@ -455,7 +457,19 @@ class PictureBookGenerator:
             
             if is_valid:
                 print(f"✅ Image for page {page_number} validated successfully")
-                return image_path, placement_info
+                
+                # Add text overlay immediately after successful validation
+                print(f"📝 Adding text overlay to page {page_number}")
+                final_image_path = self.add_text_to_image(
+                    image_path,
+                    story_text,
+                    dialog,
+                    page_number,
+                    placement_info
+                )
+                
+                print(f"✅ Completed page {page_number} with text overlay")
+                return final_image_path
             else:
                 print(f"❌ Image for page {page_number} failed validation")
                 if attempt < max_validation_retries:
@@ -478,10 +492,29 @@ class PictureBookGenerator:
                         custom_prompt_to_use = None
                 else:
                     print(f"⚠️  Using image for page {page_number} despite validation failure after {max_validation_retries} retries")
-                    return image_path, placement_info
+                    
+                    # Add text overlay even if validation failed
+                    print(f"📝 Adding text overlay to page {page_number} (validation failed)")
+                    final_image_path = self.add_text_to_image(
+                        image_path,
+                        story_text,
+                        dialog,
+                        page_number,
+                        placement_info
+                    )
+                    
+                    return final_image_path
         
         # This should never be reached, but just in case
-        return image_path, placement_info
+        # Add text overlay as fallback
+        final_image_path = self.add_text_to_image(
+            image_path,
+            story_text,
+            dialog,
+            page_number,
+            placement_info
+        )
+        return final_image_path
     
     def add_text_to_image(self, image_path: str, story_text: str, dialog: str, page_number: int, 
                          placement_info: Dict[str, Any] = None) -> str:
@@ -788,7 +821,7 @@ class PictureBookGenerator:
         
         def generate_single_image(page_data):
             """Helper function to generate a single image"""
-            return self.generate_and_validate_image(
+            return self.generate_validate_and_add_text_to_image(
                 page_data, 
                 story_data.get('characters', {}), 
                 max_validation_retries=max_validation_retries,
@@ -808,37 +841,20 @@ class PictureBookGenerator:
             for future in as_completed(future_to_page):
                 page = future_to_page[future]
                 try:
-                    image_path, placement_info = future.result()
+                    image_path = future.result()
                     # Store in correct order based on page number
                     page_index = page['page_number'] - 1
-                    image_results[page_index] = (image_path, placement_info)
+                    image_results[page_index] = image_path
                 except Exception as e:
                     print(f"Error generating image for page {page['page_number']}: {e}")
                     # Create placeholder result
                     page_index = page['page_number'] - 1
                     placeholder_path = str(self.images_dir / f"page_{page['page_number']:02d}.png")
-                    default_placement = self._get_default_placement_info(page['story_text'], page.get('dialog', ''))
-                    image_results[page_index] = (placeholder_path, default_placement)
+                    image_results[page_index] = placeholder_path
         
-        # Step 3: Add text to images
-        print("Step 3: Adding text to images...")
-        final_image_paths = []
-        
-        for i, page in enumerate(story_data['pages']):
-            if i < len(image_results) and image_results[i]:
-                image_path, placement_info = image_results[i]
-                final_path = self.add_text_to_image(
-                    image_path,
-                    page['story_text'],
-                    page.get('dialog', ''),
-                    page['page_number'],
-                    placement_info
-                )
-                final_image_paths.append(final_path)
-        
-        # Step 4: Create PDF
-        print("Step 4: Creating PDF...")
-        pdf_path = self.create_pdf(final_image_paths, story_data['title'])
+        # Step 3: Create PDF
+        print("Step 3: Creating PDF...")
+        pdf_path = self.create_pdf(image_results, story_data['title'])
         
         print(f"Picture book '{story_data['title']}' generated successfully!")
         print(f"PDF saved to: {pdf_path}")
