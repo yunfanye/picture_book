@@ -237,12 +237,12 @@ class PictureBookGenerator:
             SCORING CRITERIA (primary factors):
             - Character appearance accuracy (30 points): Do characters match their described appearances exactly?
             - Scene description alignment (30 points): Does the scene match the description accurately?
-            - Malformed text penalty (-50 points): Are there any long malformed texts, garbled words, or illegible text overlays in the image?
+            - Big malformed text penalty (-50 points): Are there any BIG CHUNKS of malformed text, long garbled words, or large illegible text overlays in the image?
             - Child appropriateness (15 points): Is it appropriate and engaging for children?
             - Visual quality (15 points): Are colors bright, composition clear, and not cluttered?
             - Style consistency (10 points): Does it match children's book illustration style?
             
-            CRITICAL: If there are any long malformed texts, garbled words, or illegible text overlays visible in the image, apply a -50 point penalty.
+            CRITICAL: Only apply the -50 point penalty for BIG CHUNKS of malformed text (multiple words, sentences, or large text blocks that are garbled/illegible). Small text artifacts or minor imperfections should not trigger this penalty.
             
             TASK 2 - DIALOG PLACEMENT:
             Determine optimal text placement for the following content:
@@ -250,13 +250,14 @@ class PictureBookGenerator:
             Story text: "{story_text}"
             Dialog (if any): "{dialog}"
             
-            For text placement, consider:
-            - Avoid covering important visual elements
-            - Ensure good readability with contrasting colors
-            - Place dialog near speaking characters when possible
-            - Use bottom area for story text if no better option
-            - Provide RGB color values that contrast well with the background
-            - Prefer white text for story text and black text for dialog
+            For text placement, prioritize these guidelines:
+            - PREFER BACKGROUND AREAS: Look for sky, grass, walls, or other relatively plain background areas
+            - Avoid covering character faces, important objects, or detailed visual elements
+            - Place dialog near speaking characters when possible, but in background areas
+            - Use bottom area for story text if it has suitable background space
+            - Text will use semi-transparent backgrounds, so focus on areas with consistent colors
+            - Provide RGB color values that contrast well with the background area
+            - Prefer white text for story text and appropriate contrasting colors for dialog
             
             TASK 3 - PROMPT REWRITING (only if score is below 70):
             If the score is below 70, provide a rewritten prompt that addresses the specific issues found.
@@ -543,19 +544,25 @@ class PictureBookGenerator:
             thickness = 2
             
             def draw_text_with_background(img, text, position, font, font_scale, text_color, bg_color, thickness, bg_needed=True):
-                """Draw text with optional background for better readability"""
+                """Draw text with semi-transparent background for better readability"""
                 x, y = position
                 
                 # Get text size
                 (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
                 
-                if bg_needed:
-                    # Draw background rectangle
-                    padding = 5
-                    cv2.rectangle(img, 
-                                (x - padding, y - text_height - padding), 
-                                (x + text_width + padding, y + baseline + padding), 
-                                bg_color, -1)
+                # Always draw semi-transparent background for better readability
+                padding = 8
+                
+                # Create overlay for semi-transparent background
+                overlay = img.copy()
+                cv2.rectangle(overlay, 
+                            (x - padding, y - text_height - padding), 
+                            (x + text_width + padding, y + baseline + padding), 
+                            bg_color, -1)
+                
+                # Blend overlay with original image (semi-transparent)
+                alpha = 0.5  # 50% opacity for background
+                cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
                 
                 # Draw text
                 cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
@@ -610,13 +617,13 @@ class PictureBookGenerator:
                         max_width = width - x - 40  # Leave margin on right
                         story_lines = wrap_text_for_position(story_text, max_width, font, story_font_scale, thickness)
                         
-                        # Draw each line
+                        # Draw each line with semi-transparent background
                         line_height = 35
                         for i, line in enumerate(story_lines):
                             line_y = y + (i * line_height)
                             if line_y < height - 20:  # Don't draw below image
                                 draw_text_with_background(img, line, (x, line_y), font, story_font_scale, 
-                                                        color, bg_color, thickness, bg_needed)
+                                                        color, bg_color, thickness, True)
                 
                 # Draw dialog using Gemini-determined positions
                 dialog_positions = placement_info.get('dialog_positions', [])
@@ -653,13 +660,13 @@ class PictureBookGenerator:
                         max_width = width - x - 40
                         dialog_lines = wrap_text_for_position(dialog_text, max_width, font, dialog_font_scale, thickness)
                         
-                        # Draw each line
+                        # Draw each line with semi-transparent background
                         line_height = 30
                         for i, line in enumerate(dialog_lines):
                             line_y = y + (i * line_height)
                             if line_y < height - 20:  # Don't draw below image
                                 draw_text_with_background(img, line, (x, line_y), font, dialog_font_scale, 
-                                                        color, bg_color, thickness, bg_needed)
+                                                        color, bg_color, thickness, True)
             
             else:
                 # Fallback to original overlay method if no placement info
@@ -669,16 +676,8 @@ class PictureBookGenerator:
                 
                 # Default colors
                 text_color = (255, 255, 255)  # White text
-                outline_color = (0, 0, 0)     # Black outline
+                bg_color = (0, 0, 0)           # Black background
                 dialog_color = (255, 255, 200)  # Light yellow for dialog
-                
-                def draw_text_with_outline(img, text, position, font, font_scale, text_color, outline_color, thickness):
-                    """Draw text with black outline for better readability"""
-                    x, y = position
-                    # Draw outline (thicker black text)
-                    cv2.putText(img, text, (x, y), font, font_scale, outline_color, thickness + 2)
-                    # Draw main text (white)
-                    cv2.putText(img, text, (x, y), font, font_scale, text_color, thickness)
                 
                 def wrap_text(text, max_width, font, font_scale, thickness):
                     """Wrap text to fit within specified width"""
@@ -720,45 +719,37 @@ class PictureBookGenerator:
                 total_lines = len(story_lines) + len(dialog_lines) + (1 if dialog_lines else 0)
                 total_text_height = total_lines * line_height + 40
                 
-                # Create semi-transparent overlay for text area
+                # Use individual semi-transparent backgrounds for each text line
                 if story_lines or dialog_lines:
-                    overlay_y_start = height - total_text_height - 20
-                    overlay_y_end = height - 10
+                    y_offset = height - total_text_height
                     
-                    # Create overlay
-                    overlay = img.copy()
-                    cv2.rectangle(overlay, (10, overlay_y_start), (width - 10, overlay_y_end), (0, 0, 0), -1)
-                    
-                    # Blend overlay with original image (semi-transparent)
-                    alpha = 0.7
-                    img = cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0)
-                    
-                    # Add text to the overlay area
-                    y_offset = overlay_y_start + 30
-                    
-                    # Draw story text
+                    # Draw story text with individual semi-transparent backgrounds
                     for line in story_lines:
-                        draw_text_with_outline(img, line, (text_margin, y_offset), font, story_font_scale, text_color, outline_color, thickness)
+                        draw_text_with_background(img, line, (text_margin, y_offset), font, story_font_scale, text_color, bg_color, thickness, True)
                         y_offset += line_height
                     
                     # Add space between story and dialog
                     if dialog_lines:
                         y_offset += 10
                     
-                    # Draw dialog text
+                    # Draw dialog text with individual semi-transparent backgrounds
                     for line in dialog_lines:
-                        draw_text_with_outline(img, line, (text_margin, y_offset), font, dialog_font_scale, dialog_color, outline_color, thickness)
+                        draw_text_with_background(img, line, (text_margin, y_offset), font, dialog_font_scale, dialog_color, bg_color, thickness, True)
                         y_offset += line_height
             
-            # Add page number in top-right corner
+            # Add page number in top-right corner with semi-transparent background
             page_text = f"Page {page_number}"
             (page_text_width, page_text_height), _ = cv2.getTextSize(page_text, font, 0.6, 1)
             page_x = width - page_text_width - 20
             page_y = 30
             
-            # Semi-transparent background for page number
-            cv2.rectangle(img, (page_x - 10, page_y - page_text_height - 5), (page_x + page_text_width + 10, page_y + 5), (0, 0, 0), -1)
-            cv2.rectangle(img, (page_x - 10, page_y - page_text_height - 5), (page_x + page_text_width + 10, page_y + 5), (255, 255, 255), 1)
+            # Use semi-transparent background for page number
+            padding = 5
+            overlay = img.copy()
+            cv2.rectangle(overlay, (page_x - padding, page_y - page_text_height - padding), 
+                         (page_x + page_text_width + padding, page_y + padding), (0, 0, 0), -1)
+            alpha = 0.5
+            cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
             cv2.putText(img, page_text, (page_x, page_y), font, 0.6, (255, 255, 255), 1)
             
             # Save the final image
