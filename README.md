@@ -10,6 +10,9 @@ This script generates complete picture books for children using AI. It combines 
 4. **Image Generation**: Uses Google's Imagen 3 to create beautiful illustrations
 5. **Direct Text Integration**: Adds story text and dialog directly onto images with professional styling
 6. **PDF Creation**: Compiles everything into a professional PDF book
+7. **Image Validation**: Uses Gemini 2.5 Pro to validate images and determine optimal text placement
+8. **Automatic Retry**: Intelligent retry logic for failed image generations
+9. **Story Structure Persistence**: Save and reuse story structures for testing
 
 ## Setup
 
@@ -193,4 +196,74 @@ output/
 - Batch generation for multiple ages
 - Custom story themes and topics
 - Character relationship mapping
-- Advanced character consistency validation # picture_book
+- Advanced character consistency validation
+
+## Usage
+
+### Basic Usage
+```bash
+# Generate a new picture book for a 5-year-old
+python create.py 5
+
+# Generate with custom retry settings
+python create.py 5 --generation-retries 5 --validation-retries 3
+```
+
+### Using Reference Stories
+```bash
+# Use a reference story from text
+python create.py 7 --reference "Once upon a time..."
+
+# Use a reference story from file
+python create.py 7 --reference-file story.txt
+```
+
+### Story Structure Management
+```bash
+# List available saved story structures
+python create.py --list-stories
+
+# Use a pre-generated story structure (skips Claude generation)
+python create.py 5 --story-structure output/story_structure_adventure_20241201_143022.json
+```
+
+### Advanced Options
+```bash
+# Full control over generation
+python create.py 6 \
+  --reference-file my_story.txt \
+  --max-workers 2 \
+  --generation-retries 4 \
+  --validation-retries 2
+```
+
+## Command Line Arguments
+
+- `age`: Target age for the child (1-12)
+- `--reference`, `-r`: Reference story text
+- `--reference-file`, `-f`: Path to reference story file
+- `--story-structure`, `-s`: Path to pre-generated story structure JSON
+- `--list-stories`, `-l`: List available story structure files
+- `--max-workers`, `-m`: Number of parallel image generation threads (default: 4)
+- `--generation-retries`, `-g`: Max retries for image generation failures (default: 3)
+- `--validation-retries`, `-v`: Max retries for validation failures (default: 2)
+
+## Story Structure Files
+
+When generating a new story, the system automatically saves the Claude-generated story structure to a JSON file in the `output/` directory with the format:
+```
+story_structure_{title}_{timestamp}.json
+```
+
+These files can be reused to:
+- Skip the story generation step for faster testing
+- Regenerate images with different settings
+- Share story structures between runs
+- Debug image generation issues
+
+## Output
+
+The system creates:
+- `output/images/`: Individual page images
+- `output/story_structure_*.json`: Saved story structures
+- `output/{title}_picture_book.pdf`: Final PDF book
